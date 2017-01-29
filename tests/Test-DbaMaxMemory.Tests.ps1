@@ -12,6 +12,7 @@ if($env:APPVEYOR_REPO_BRANCH -and $env:APPVEYOR_REPO_BRANCH -notlike 'master') {
 }
 
 $path = (Get-Item -Path $MyInvocation.MyCommand.Path).FullName
+Write-Output "Path '$path'"
 
 if(-not $PSScriptRoot) {
 	$PSScriptRoot = Split-Path -Path $path -Parent
