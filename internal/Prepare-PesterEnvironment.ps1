@@ -1,5 +1,4 @@
 #Requires -Version 3.0
-
 Set-StrictMode -Version 1.0
 
 Function Prepare-PesterEnvironment (

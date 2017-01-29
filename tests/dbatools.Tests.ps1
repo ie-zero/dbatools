@@ -1,5 +1,5 @@
 ﻿#Requires -Version 3.0
-Set-StrictMode -Version Latest
+Set-StrictMode -Version 1.0
 
 $Path = Split-Path -Parent $MyInvocation.MyCommand.Path
 $ModulePath = (get-item $Path ).parent.FullName

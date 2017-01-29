@@ -1,7 +1,5 @@
 #Requires -Version 3.0
 #Requires -Module Pester 
-#Requires -Module PSScriptAnalyzer
-
 Set-StrictMode -Version 1.0
 
 ## Thank you Warren http://ramblingcookiemonster.github.io/Testing-DSC-with-Pester-and-AppVeyor/
@@ -12,7 +10,6 @@ if($env:APPVEYOR_REPO_BRANCH -and $env:APPVEYOR_REPO_BRANCH -notlike 'master') {
 }
 
 $path = (Get-Item -Path $MyInvocation.MyCommand.Path).FullName
-Write-Output "Path '$path'"
 
 if(-not $PSScriptRoot) {
 	$PSScriptRoot = Split-Path -Path $path -Parent
@@ -38,7 +35,7 @@ Prepare-PesterEnvironment -ModulePath $modulePath
 
 Import-Module -Name "$modulePath\functions\$functionName.ps1" -Force
 
-## Validate functionality. 
+# Validate functionality
 Describe $functionName {
 	InModuleScope dbatools {
 		Context 'Validate input arguments' {
