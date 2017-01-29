@@ -17,10 +17,14 @@ if(-not $PSScriptRoot) {
 	$PSScriptRoot = Split-Path -Path $path -Parent
 }
 
+$modulePath = Split-Path -Path $path -Parent
 $functionName = (Split-Path -Path $path -Leaf) -replace '.Tests.ps1$'
 
-## Added PSAvoidUsingPlainTextForPassword as credential is an object and therefore fails. 
-## We can ignore any rules here under special circumstances agreed by admins :-)
+# When the tests are located in .\Tests sub-directory.
+if ((Split-Path $modulePath -Leaf) -eq 'Tests') {
+	$modulePath = Split-Path -Path $modulePath -Parent
+}
+
 # Added PSAvoidUsingPlainTextForPassword as credential is an object and therefore fails. 
 # We can ignore any rules here under special circumstances agreed by admins :-)
 $rulesExcluded = @('PSAvoidUsingPlainTextForPassword')
@@ -36,7 +40,6 @@ Import-Module -Name "$modulePath\functions\$functionName.ps1" -Force
 ## Validate functionality. 
 Describe $functionName {
 	InModuleScope dbatools {
-        <#
 		Context 'Validate input arguments' {
             It 'No "SQL Server" Windows service is running on the host' {
                 Mock Get-Service { throw ParameterArgumentValidationError }
@@ -54,7 +57,6 @@ Describe $functionName {
 			}
 
 		}
-        #>
 
 		Context 'Validate functionality - Single Instance' {            
             Mock Resolve-SqlIpAddress -MockWith { return '10.0.0.1' } 
