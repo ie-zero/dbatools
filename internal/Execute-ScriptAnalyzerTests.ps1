@@ -8,6 +8,8 @@ function Execute-ScriptAnalyzerTests(
     [string] $Path,
     [string[]] $ExcludeRule
 ) {
+    Import-Module -Name PSScriptAnalyzer
+
     $functionName = (Split-Path -Path $Path -Leaf) -replace '.ps1$'
     $rules = Get-ScriptAnalyzerRule | Where{ $_.RuleName -notin @($ExcludeRule) }
 

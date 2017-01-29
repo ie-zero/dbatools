@@ -2,37 +2,7 @@
 #Requires -Module Pester 
 #Requires -Module PSScriptAnalyzer
 
-Set-StrictMode -Version 2.0
-
-Function Get-ModuleInfo(
-    [string] $Path
-) {
-
-    ## Load the command
-    $moduleBase = $Path
-
-    # For tests in .\Tests sub-directory
-    if ((Split-Path $moduleBase -Leaf) -in ('tests', 'internal', 'functions')) {
-	    $moduleBase = Split-Path -Path $moduleBase -Parent
-    }
-
-    # Handles modules in version directories
-    $leaf = Split-Path -Path $moduleBase -Leaf
-    $parent = Split-Path -Path $moduleBase -Parent
-    $parsedVersion = $null
-    if ([System.Version]::TryParse($leaf, [ref]$parsedVersion)) {
-	    $moduleName = Split-Path -Path $parent -Leaf
-    }
-    else {
-	    $moduleName = $leaf
-    }
-
-    Write-Output -OutVariable [PSCustomObject] @{
-        ModulePath = $moduleBase
-        ModuleName = $moduleName
-        ModuleVersion = $parsedVersion
-    }
-}
+Set-StrictMode -Version 1.0
 
 ## Thank you Warren http://ramblingcookiemonster.github.io/Testing-DSC-with-Pester-and-AppVeyor/
 
@@ -47,20 +17,21 @@ if(-not $PSScriptRoot) {
 	$PSScriptRoot = Split-Path -Path $path -Parent
 }
 
-$moduleInfo = Get-ModuleInfo -Path (Split-Path -Path $path -Parent);
 $functionName = (Split-Path -Path $path -Leaf) -replace '.Tests.ps1$'
 
 ## Added PSAvoidUsingPlainTextForPassword as credential is an object and therefore fails. 
 ## We can ignore any rules here under special circumstances agreed by admins :-)
+# Added PSAvoidUsingPlainTextForPassword as credential is an object and therefore fails. 
+# We can ignore any rules here under special circumstances agreed by admins :-)
 $rulesExcluded = @('PSAvoidUsingPlainTextForPassword')
 
-Import-Module -Name "$($moduleInfo.ModulePath)\internal\Execute-ScriptAnalyzerTests.ps1" -Force
-Execute-ScriptAnalyzerTests -Path "$($moduleInfo.ModulePath)\functions\$functionName.ps1" -ExcludeRule $rulesExcluded
+Import-Module -Name "$modulePath\internal\Execute-ScriptAnalyzerTests.ps1" -Force
+Execute-ScriptAnalyzerTests -Path "$modulePath\functions\$functionName.ps1" -ExcludeRule $rulesExcluded
 
-Import-Module -Name "$($moduleInfo.ModulePath)\internal\Prepare-PesterEnvironmen.ps1" -Force
-Prepare-PesterEnvironment -ModuleInfo $moduleInfo
+Import-Module -Name "$modulePath\internal\Prepare-PesterEnvironment.ps1" -Force
+Prepare-PesterEnvironment -ModulePath $modulePath
 
-Import-Module -Name "$($moduleInfo.ModulePath)\functions\$functionName.ps1" -Force
+Import-Module -Name "$modulePath\functions\$functionName.ps1" -Force
 
 ## Validate functionality. 
 Describe $functionName {
