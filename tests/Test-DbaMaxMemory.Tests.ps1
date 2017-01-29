@@ -41,19 +41,17 @@ if($env:APPVEYOR_REPO_BRANCH -and $env:APPVEYOR_REPO_BRANCH -notlike 'master') {
 	$verbose.add("Verbose", $true)
 }
 
+$path = (Get-Item -Path $MyInvocation.MyCommand.Path).FullName
+
 if(-not $PSScriptRoot) {
-	$PSScriptRoot = (Get-Item -Path (Split-Path -Path $MyInvocation.MyCommand.Path -Parent)).FullName
+	$PSScriptRoot = Split-Path -Path $path -Parent
 }
 
-$moduleInfo = Get-ModuleInfo -Path (Split-Path -Path $MyInvocation.MyCommand.Path -Parent);
+$moduleInfo = Get-ModuleInfo -Path (Split-Path -Path $path -Parent);
+$functionName = (Split-Path -Path $path -Leaf) -replace '.Tests.ps1$'
 
-#$sut = (Split-Path -Path $MyInvocation.MyCommand.Path -Leaf).Replace('.Tests.', '.')
-#$sut = (Split-Path -Path $MyInvocation.MyCommand.Path -Leaf) -replace '.Tests.ps1$', '.ps1'
-#$name = $sut.Split('.')[0]
-$functionName = (Split-Path -Path $MyInvocation.MyCommand.Path -Leaf) -replace '.Tests.ps1$'
-
-## Added PSAvoidUsingPlainTextForPassword as credential is an object and therefore fails. We can 
-## ignore any rules here under special circumstances agreed by admins :-)
+## Added PSAvoidUsingPlainTextForPassword as credential is an object and therefore fails. 
+## We can ignore any rules here under special circumstances agreed by admins :-)
 $rulesExcluded = @('PSAvoidUsingPlainTextForPassword')
 
 Import-Module -Name "$($moduleInfo.ModulePath)\internal\Execute-ScriptAnalyzerTests.ps1" -Force
