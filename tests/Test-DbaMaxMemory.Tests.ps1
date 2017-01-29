@@ -48,24 +48,24 @@ if(-not $PSScriptRoot) {
 $moduleInfo = Get-ModuleInfo -Path (Split-Path -Path $MyInvocation.MyCommand.Path -Parent);
 
 #$sut = (Split-Path -Path $MyInvocation.MyCommand.Path -Leaf).Replace('.Tests.', '.')
-$sut = (Split-Path -Path $MyInvocation.MyCommand.Path -Leaf) -replace '.Tests.ps1$', '.ps1'
+#$sut = (Split-Path -Path $MyInvocation.MyCommand.Path -Leaf) -replace '.Tests.ps1$', '.ps1'
 #$name = $sut.Split('.')[0]
-$name = (Split-Path -Path $MyInvocation.MyCommand.Path -Leaf) -replace '.Tests.ps1$'
+$functionName = (Split-Path -Path $MyInvocation.MyCommand.Path -Leaf) -replace '.Tests.ps1$'
 
 ## Added PSAvoidUsingPlainTextForPassword as credential is an object and therefore fails. We can 
 ## ignore any rules here under special circumstances agreed by admins :-)
 $rulesExcluded = @('PSAvoidUsingPlainTextForPassword')
 
 Import-Module -Name "$($moduleInfo.ModulePath)\internal\Execute-ScriptAnalyzerTests.ps1" -Force
-Execute-ScriptAnalyzerTests -Path "$($moduleInfo.ModulePath)\functions\$sut" -Name $name -ExcludeRule $rulesExcluded
+Execute-ScriptAnalyzerTests -Path "$($moduleInfo.ModulePath)\functions\$functionName.ps1" -ExcludeRule $rulesExcluded
 
 Import-Module -Name "$($moduleInfo.ModulePath)\internal\Prepare-PesterEnvironmen.ps1" -Force
 Prepare-PesterEnvironment -ModuleInfo $moduleInfo
 
-Import-Module -Name "$($moduleInfo.ModulePath)\functions\$sut" -Force
+Import-Module -Name "$($moduleInfo.ModulePath)\functions\$functionName.ps1" -Force
 
 ## Validate functionality. 
-Describe $name {
+Describe $functionName {
 	InModuleScope dbatools {
         <#
 		Context 'Validate input arguments' {

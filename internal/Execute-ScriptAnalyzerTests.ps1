@@ -5,14 +5,14 @@
 Set-StrictMode -Version 1.0
 
 function Execute-ScriptAnalyzerTests(
-    [string] $Name,
     [string] $Path,
     [string[]] $ExcludeRule
 ) {
+    $functionName = (Split-Path -Path $Path -Leaf) -replace '.ps1$'
     $rules = Get-ScriptAnalyzerRule | Where{ $_.RuleName -notin @($ExcludeRule) }
 
     Describe 'Script Analyzer Tests' {
-	    Context "Testing '$name' for Standard Processing" {
+	    Context "Testing '$functionName' for Standard Processing" {
 		    foreach ($rule in $rules) { 
 			    $index = $rules.IndexOf($rule)
 			    It "Processing PSScriptAnalyzer rule number $($index +1) - $rule	" {
