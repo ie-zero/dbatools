@@ -4,76 +4,6 @@
 
 Set-StrictMode -Version 2.0
 
-function Execute-ScriptAnalyzerTests(
-    [string] $Name,
-    [string] $Path,
-    [string[]] $ExcludeRule
-) {
-    $rules = Get-ScriptAnalyzerRule | Where{ $_.RuleName -notin @($ExcludeRule) }
-
-    Describe 'Script Analyzer Tests' {
-	    Context "Testing '$name' for Standard Processing" {
-		    foreach ($rule in $rules) { 
-			    $index = $rules.IndexOf($rule)
-			    It "Processing PSScriptAnalyzer rule number $($index +1) - $rule	" {
-				    #@(Invoke-ScriptAnalyzer -Path "$PSScriptRoot\..\functions\$sut" -IncludeRule $rule.RuleName).Count | Should Be 0 
-                    @(Invoke-ScriptAnalyzer -Path $Path -IncludeRule $rule.RuleName).Count | Should Be 0 
-			    }
-		    }
-	    }
-    }
-}
-
-## Thank you Warren http://ramblingcookiemonster.github.io/Testing-DSC-with-Pester-and-AppVeyor/
-
-$Verbose = @{}
-if($env:APPVEYOR_REPO_BRANCH -and $env:APPVEYOR_REPO_BRANCH -notlike 'master') {
-	$Verbose.add("Verbose", $true)
-}
-
-## Load the command
-$ModuleBase = Split-Path -Path $MyInvocation.MyCommand.Path -Parent
-
-if(-not $PSScriptRoot) {
-	$PSScriptRoot = $ModuleBase
-}
-
-# For tests in .\Tests sub-directory
-if ((Split-Path $ModuleBase -Leaf) -eq 'Tests') {
-	$ModuleBase = Split-Path $ModuleBase -Parent
-}
-
-$sut = (Split-Path -Path $MyInvocation.MyCommand.Path -Leaf).Replace('.Tests.', '.')
-$name = $sut.Split('.')[0]
-
-## Added PSAvoidUsingPlainTextForPassword as credential is an object and therefore fails. We can 
-## ignore any rules here under special circumstances agreed by admins :-)
-$rulesExcluded = @('PSAvoidUsingPlainTextForPassword')
-
-Import-Module -Name PSScriptAnalyzer
-Import-Module -Name "$PSScriptRoot\..\functions\$sut" -Force
-
-## ## Added PSAvoidUsingPlainTextForPassword as credential is an object and therefore fails. We can ignore any rules here under special circumstances agreed by admins :-)
-## $rules = Get-ScriptAnalyzerRule | Where{ $_.RuleName -notin ('PSAvoidUsingPlainTextForPassword') }
-
-Execute-ScriptAnalyzerTests -Path "$PSScriptRoot\..\functions\$sut" -Name $name -ExcludeRule $rulesExcluded
-
-<#
-$rules = Get-ScriptAnalyzerRule | Where{ $_.RuleName -notin $rulesExcluded }
-
-Describe 'Script Analyzer Tests' {
-	Context "Testing $name for Standard Processing" {
-		foreach ($rule in $rules) { 
-			$index = $rules.IndexOf($rule)
-			It "passes the PSScriptAnalyzer Rule number $($index +1) - $rule	" {
-				@(Invoke-ScriptAnalyzer -Path "$PSScriptRoot\..\functions\$sut" -IncludeRule $rule.RuleName).Count | Should Be 0 
-			}
-		}
-	}
-}
-#>
-
-
 Function Get-ModuleInfo(
     [string] $Path
 ) {
@@ -82,8 +12,8 @@ Function Get-ModuleInfo(
     $ModuleBase = $Path
 
     # For tests in .\Tests sub-directory
-    if ((Split-Path $ModuleBase -Leaf) -in ('Tests', 'internal', 'functions')) {
-	    $ModuleBase = Split-Path $ModuleBase -Parent
+    if ((Split-Path $ModuleBase -Leaf) -in ('tests', 'internal', 'functions')) {
+	    $ModuleBase = Split-Path -Path $ModuleBase -Parent
     }
 
     # Handles modules in version directories
@@ -98,13 +28,13 @@ Function Get-ModuleInfo(
     }
 
     Write-Output -OutVariable [PSCustomObject] @{
-        ModuleBase = $ModulePath
+        ModulePath = $ModuleBase
         ModuleName = $ModuleName
         ModuleVersion = $parsedVersion
     }
 }
 
-Function Load-InternalFunctions (
+Function Prepare-PesterEnvironment (
     [PSCustomObject] $ModuleInfo
 ) {
     # Removes all versions of the module from the session before importing
@@ -116,6 +46,46 @@ Function Load-InternalFunctions (
     #. "$ModuleBase\internal\DynamicParams.ps1"
     Get-ChildItem -Path "$($ModuleInfo.ModulePath)\internal" -File -Filter *.ps1 | ForEach-Object { . $_.FullName }    
 }
+
+## Thank you Warren http://ramblingcookiemonster.github.io/Testing-DSC-with-Pester-and-AppVeyor/
+
+$Verbose = @{}
+if($env:APPVEYOR_REPO_BRANCH -and $env:APPVEYOR_REPO_BRANCH -notlike 'master') {
+	$Verbose.add("Verbose", $true)
+}
+
+## Load the command
+$ModuleBase = (Get-Item -Path (Split-Path -Path $MyInvocation.MyCommand.Path -Parent)).FullName
+
+if(-not $PSScriptRoot) {
+	$PSScriptRoot = $ModuleBase
+}
+
+
+$moduleInfo = Get-ModuleInfo -Path (Split-Path -Path $MyInvocation.MyCommand.Path -Parent);
+<#
+# For tests in .\Tests sub-directory
+if ((Split-Path $ModuleBase -Leaf) -eq 'Tests') {
+	$ModuleBase = Split-Path $ModuleBase -Parent
+}
+#>
+$ModuleBase = $moduleInfo.ModulePath
+
+$sut = (Split-Path -Path $MyInvocation.MyCommand.Path -Leaf).Replace('.Tests.', '.')
+$name = $sut.Split('.')[0]
+
+## Added PSAvoidUsingPlainTextForPassword as credential is an object and therefore fails. We can 
+## ignore any rules here under special circumstances agreed by admins :-)
+$rulesExcluded = @('PSAvoidUsingPlainTextForPassword')
+
+Import-Module -Name "$($moduleInfo.ModulePath)\functions\$sut" -Force
+Import-Module -Name "$($moduleInfo.ModulePath)\internal\Execute-ScriptAnalyzerTests.ps1" -Force
+
+## ## Added PSAvoidUsingPlainTextForPassword as credential is an object and therefore fails. We can ignore any rules here under special circumstances agreed by admins :-)
+## $rules = Get-ScriptAnalyzerRule | Where{ $_.RuleName -notin ('PSAvoidUsingPlainTextForPassword') }
+
+Execute-ScriptAnalyzerTests -Path "$($moduleInfo.ModulePath)\functions\$sut" -Name $name -ExcludeRule $rulesExcluded
+
 
 <#
 # Handles modules in version directories
@@ -143,8 +113,8 @@ $null = Import-Module -Name "$ModuleBase\$ModuleName.psd1" -PassThru -ErrorActio
 Get-ChildItem -Path "$ModuleBase\internal" -File -Filter *.ps1 | ForEach-Object { . $_.FullName }
 #>
 
-$moduleInfo = Get-ModuleInfo -Path (Split-Path -Path $MyInvocation.MyCommand.Path -Parent);
-Load-InternalFunctions -ModuleInfo $moduleInfo
+#$moduleInfo = Get-ModuleInfo -Path (Split-Path -Path $MyInvocation.MyCommand.Path -Parent);
+Prepare-PesterEnvironment -ModuleInfo $moduleInfo
 
 ## Validate functionality. 
 Describe $name {
