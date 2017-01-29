@@ -1,4 +1,8 @@
-﻿$Path = Split-Path -Parent $MyInvocation.MyCommand.Path
+﻿#Requires -Version 3.0
+
+Set-StrictMode -Version 2.0
+
+$Path = Split-Path -Parent $MyInvocation.MyCommand.Path
 $ModulePath = (get-item $Path ).parent.FullName
 $ModuleName = (Split-Path -Leaf $MyInvocation.MyCommand.Path) -Replace ".Tests.ps1"
 $ManifestPath   = "$ModulePath\$ModuleName.psd1"
@@ -6,7 +10,7 @@ $ManifestPath   = "$ModulePath\$ModuleName.psd1"
 
 # test the module manifest - exports the right functions, processes the right formats, and is generally correct
 
-Describe "Manifest" {
+Describe "Module manifest" {
 
     $Manifest = $null
 

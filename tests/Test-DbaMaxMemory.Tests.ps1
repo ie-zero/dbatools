@@ -98,7 +98,7 @@ Function Get-ModuleInfo(
     }
 
     Write-Output -OutVariable [PSCustomObject] @{
-        ModuleBase = $ModuleBase
+        ModuleBase = $ModulePath
         ModuleName = $ModuleName
         ModuleVersion = $parsedVersion
     }
@@ -112,9 +112,9 @@ Function Load-InternalFunctions (
 
     # Because ModuleBase includes version number, this imports the required version
     # of the module
-    $null = Import-Module -Name "$($ModuleInfo.ModuleBase)\$($ModuleInfo.ModuleName).psd1" -PassThru -ErrorAction Stop 
+    $null = Import-Module -Name "$($ModuleInfo.ModulePath)\$($ModuleInfo.ModuleName).psd1" -PassThru -ErrorAction Stop 
     #. "$ModuleBase\internal\DynamicParams.ps1"
-    Get-ChildItem -Path "$($ModuleInfo.ModuleBase)\internal" -File -Filter *.ps1 | ForEach-Object { . $_.FullName }    
+    Get-ChildItem -Path "$($ModuleInfo.ModulePath)\internal" -File -Filter *.ps1 | ForEach-Object { . $_.FullName }    
 }
 
 <#
