@@ -1,67 +1,155 @@
-## Thank you Warren http://ramblingcookiemonster.github.io/Testing-DSC-with-Pester-and-AppVeyor/
+#Requires -Version 3.0
+#Requires -Module Pester 
+#Requires -Module PSScriptAnalyzer
 
-if(-not $PSScriptRoot) {
-	$PSScriptRoot = Split-Path $MyInvocation.MyCommand.Path -Parent
+Set-StrictMode -Version 2.0
+
+function Execute-ScriptAnalyzerTests(
+    [string] $Name,
+    [string] $Path,
+    [string[]] $ExcludeRule
+) {
+    $rules = Get-ScriptAnalyzerRule | Where{ $_.RuleName -notin @($ExcludeRule) }
+
+    Describe 'Script Analyzer Tests' {
+	    Context "Testing '$name' for Standard Processing" {
+		    foreach ($rule in $rules) { 
+			    $index = $rules.IndexOf($rule)
+			    It "Processing PSScriptAnalyzer rule number $($index +1) - $rule	" {
+				    #@(Invoke-ScriptAnalyzer -Path "$PSScriptRoot\..\functions\$sut" -IncludeRule $rule.RuleName).Count | Should Be 0 
+                    @(Invoke-ScriptAnalyzer -Path $Path -IncludeRule $rule.RuleName).Count | Should Be 0 
+			    }
+		    }
+	    }
+    }
 }
 
+## Thank you Warren http://ramblingcookiemonster.github.io/Testing-DSC-with-Pester-and-AppVeyor/
+
 $Verbose = @{}
-if($env:APPVEYOR_REPO_BRANCH -and $env:APPVEYOR_REPO_BRANCH -notlike "master") {
+if($env:APPVEYOR_REPO_BRANCH -and $env:APPVEYOR_REPO_BRANCH -notlike 'master') {
 	$Verbose.add("Verbose", $true)
 }
 
+## Load the command
+$ModuleBase = Split-Path -Path $MyInvocation.MyCommand.Path -Parent
 
-$sut = (Split-Path -Leaf $MyInvocation.MyCommand.Path).Replace('.Tests.', '.')
-Import-Module "$PSScriptRoot\..\functions\$sut" -Force
-Import-Module PSScriptAnalyzer
-## Added PSAvoidUsingPlainTextForPassword as credential is an object and therefore fails. We can ignore any rules here under special circumstances agreed by admins :-)
-$rules = Get-ScriptAnalyzerRule | Where{$_.RuleName -notin ('PSAvoidUsingPlainTextForPassword') }
+if(-not $PSScriptRoot) {
+	$PSScriptRoot = $ModuleBase
+}
+
+# For tests in .\Tests sub-directory
+if ((Split-Path $ModuleBase -Leaf) -eq 'Tests') {
+	$ModuleBase = Split-Path $ModuleBase -Parent
+}
+
+$sut = (Split-Path -Path $MyInvocation.MyCommand.Path -Leaf).Replace('.Tests.', '.')
 $name = $sut.Split('.')[0]
+
+## Added PSAvoidUsingPlainTextForPassword as credential is an object and therefore fails. We can 
+## ignore any rules here under special circumstances agreed by admins :-)
+$rulesExcluded = @('PSAvoidUsingPlainTextForPassword')
+
+Import-Module -Name PSScriptAnalyzer
+Import-Module -Name "$PSScriptRoot\..\functions\$sut" -Force
+
+## ## Added PSAvoidUsingPlainTextForPassword as credential is an object and therefore fails. We can ignore any rules here under special circumstances agreed by admins :-)
+## $rules = Get-ScriptAnalyzerRule | Where{ $_.RuleName -notin ('PSAvoidUsingPlainTextForPassword') }
+
+Execute-ScriptAnalyzerTests -Path "$PSScriptRoot\..\functions\$sut" -Name $name -ExcludeRule $rulesExcluded
+
+<#
+$rules = Get-ScriptAnalyzerRule | Where{ $_.RuleName -notin $rulesExcluded }
 
 Describe 'Script Analyzer Tests' {
 	Context "Testing $name for Standard Processing" {
 		foreach ($rule in $rules) { 
 			$index = $rules.IndexOf($rule)
-			It "passes the PSScriptAnalyzer Rule number $index - $rule	" {
-				(Invoke-ScriptAnalyzer -Path "$PSScriptRoot\..\functions\$sut" -IncludeRule $rule.RuleName).Count | Should Be 0 
+			It "passes the PSScriptAnalyzer Rule number $($index +1) - $rule	" {
+				@(Invoke-ScriptAnalyzer -Path "$PSScriptRoot\..\functions\$sut" -IncludeRule $rule.RuleName).Count | Should Be 0 
 			}
 		}
 	}
 }
+#>
 
-## Load the command
-$ModuleBase = Split-Path -Parent $MyInvocation.MyCommand.Path
 
-# For tests in .\Tests subdirectory
-if ((Split-Path $ModuleBase -Leaf) -eq 'Tests')
-{
-	$ModuleBase = Split-Path $ModuleBase -Parent
+Function Get-ModuleInfo(
+    [string] $Path
+) {
+
+    ## Load the command
+    $ModuleBase = $Path
+
+    # For tests in .\Tests sub-directory
+    if ((Split-Path $ModuleBase -Leaf) -in ('Tests', 'internal', 'functions')) {
+	    $ModuleBase = Split-Path $ModuleBase -Parent
+    }
+
+    # Handles modules in version directories
+    $leaf = Split-Path -Path $ModuleBase -Leaf
+    $parent = Split-Path -Path $ModuleBase -Parent
+    $parsedVersion = $null
+    if ([System.Version]::TryParse($leaf, [ref]$parsedVersion)) {
+	    $ModuleName = Split-Path -Path $parent -Leaf
+    }
+    else {
+	    $ModuleName = $leaf
+    }
+
+    Write-Output -OutVariable [PSCustomObject] @{
+        ModuleBase = $ModuleBase
+        ModuleName = $ModuleName
+        ModuleVersion = $parsedVersion
+    }
 }
 
+Function Load-InternalFunctions (
+    [PSCustomObject] $ModuleInfo
+) {
+    # Removes all versions of the module from the session before importing
+    Get-Module -Name $($ModuleInfo.ModuleName) | Remove-Module
+
+    # Because ModuleBase includes version number, this imports the required version
+    # of the module
+    $null = Import-Module -Name "$($ModuleInfo.ModuleBase)\$($ModuleInfo.ModuleName).psd1" -PassThru -ErrorAction Stop 
+    #. "$ModuleBase\internal\DynamicParams.ps1"
+    Get-ChildItem -Path "$($ModuleInfo.ModuleBase)\internal" -File -Filter *.ps1 | ForEach-Object { . $_.FullName }    
+}
+
+<#
 # Handles modules in version directories
-$leaf = Split-Path $ModuleBase -Leaf
-$parent = Split-Path $ModuleBase -Parent
+$leaf = Split-Path -Path $ModuleBase -Leaf
+$parent = Split-Path -Path $ModuleBase -Parent
 $parsedVersion = $null
 if ([System.Version]::TryParse($leaf, [ref]$parsedVersion)) {
-	$ModuleName = Split-Path $parent -Leaf
+	$ModuleName = Split-Path -Path $parent -Leaf
 }
 else {
 	$ModuleName = $leaf
 }
+"ModuleBase $ModuleBase"
+"ModuleName $ModuleName"
+"Leaf $leaf"
+"parent $parent"
 
 # Removes all versions of the module from the session before importing
-Get-Module $ModuleName | Remove-Module
+Get-Module -Name $ModuleName | Remove-Module
 
 # Because ModuleBase includes version number, this imports the required version
 # of the module
-$null = Import-Module $ModuleBase\$ModuleName.psd1 -PassThru -ErrorAction Stop 
-. "$Modulebase\internal\DynamicParams.ps1"
-Get-ChildItem "$Modulebase\internal\" |% {. $_.fullname}
+$null = Import-Module -Name "$ModuleBase\$ModuleName.psd1" -PassThru -ErrorAction Stop 
+. "$ModuleBase\internal\DynamicParams.ps1"
+Get-ChildItem -Path "$ModuleBase\internal" -File -Filter *.ps1 | ForEach-Object { . $_.FullName }
+#>
 
+$moduleInfo = Get-ModuleInfo -Path (Split-Path -Path $MyInvocation.MyCommand.Path -Parent);
+Load-InternalFunctions -ModuleInfo $moduleInfo
 
 ## Validate functionality. 
-
 Describe $name {
 	InModuleScope dbatools {
+        <#
 		Context 'Validate input arguments' {
             It 'No "SQL Server" Windows service is running on the host' {
                 Mock Get-Service { throw ParameterArgumentValidationError }
@@ -79,6 +167,7 @@ Describe $name {
 			}
 
 		}
+        #>
 
 		Context 'Validate functionality - Single Instance' {            
             Mock Resolve-SqlIpAddress -MockWith { return '10.0.0.1' } 
