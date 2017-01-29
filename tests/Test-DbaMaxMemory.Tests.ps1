@@ -43,7 +43,7 @@ Function Prepare-PesterEnvironment (
     # Because ModuleBase includes version number, this imports the required version
     # of the module
     $null = Import-Module -Name "$($ModuleInfo.ModulePath)\$($ModuleInfo.ModuleName).psd1" -PassThru -ErrorAction Stop 
-    #. "$ModuleBase\internal\DynamicParams.ps1"
+    . "$ModuleBase\internal\DynamicParams.ps1"
     Get-ChildItem -Path "$($ModuleInfo.ModulePath)\internal" -File -Filter *.ps1 | ForEach-Object { . $_.FullName }    
 }
 

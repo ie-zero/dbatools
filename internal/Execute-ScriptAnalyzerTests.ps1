@@ -16,7 +16,6 @@ function Execute-ScriptAnalyzerTests(
 		    foreach ($rule in $rules) { 
 			    $index = $rules.IndexOf($rule)
 			    It "Processing PSScriptAnalyzer rule number $($index +1) - $rule	" {
-				    #@(Invoke-ScriptAnalyzer -Path "$PSScriptRoot\..\functions\$sut" -IncludeRule $rule.RuleName).Count | Should Be 0 
                     @(Invoke-ScriptAnalyzer -Path $Path -IncludeRule $rule.RuleName).Count | Should Be 0 
 			    }
 		    }
