@@ -34,25 +34,11 @@ Function Get-ModuleInfo(
     }
 }
 
-Function Prepare-PesterEnvironment (
-    [PSCustomObject] $ModuleInfo
-) {
-    # Removes all versions of the module from the session before importing
-    Get-Module -Name $($ModuleInfo.ModuleName) | Remove-Module
-
-    # Because ModuleBase includes version number, this imports the required version
-    # of the module
-    $null = Import-Module -Name "$($ModuleInfo.ModulePath)\$($ModuleInfo.ModuleName).psd1" -PassThru -ErrorAction Stop 
-    
-    . "$($ModuleInfo.ModulePath)\internal\DynamicParams.ps1"
-    Get-ChildItem -Path "$($ModuleInfo.ModulePath)\internal" -File -Filter *.ps1 | ForEach-Object { . $_.FullName }    
-}
-
 ## Thank you Warren http://ramblingcookiemonster.github.io/Testing-DSC-with-Pester-and-AppVeyor/
 
-$Verbose = @{}
+$verbose = @{}
 if($env:APPVEYOR_REPO_BRANCH -and $env:APPVEYOR_REPO_BRANCH -notlike 'master') {
-	$Verbose.add("Verbose", $true)
+	$verbose.add("Verbose", $true)
 }
 
 if(-not $PSScriptRoot) {
@@ -61,18 +47,22 @@ if(-not $PSScriptRoot) {
 
 $moduleInfo = Get-ModuleInfo -Path (Split-Path -Path $MyInvocation.MyCommand.Path -Parent);
 
-$sut = (Split-Path -Path $MyInvocation.MyCommand.Path -Leaf).Replace('.Tests.', '.')
-$name = $sut.Split('.')[0]
+#$sut = (Split-Path -Path $MyInvocation.MyCommand.Path -Leaf).Replace('.Tests.', '.')
+$sut = (Split-Path -Path $MyInvocation.MyCommand.Path -Leaf) -replace '.Tests.ps1$', '.ps1'
+#$name = $sut.Split('.')[0]
+$name = (Split-Path -Path $MyInvocation.MyCommand.Path -Leaf) -replace '.Tests.ps1$'
 
 ## Added PSAvoidUsingPlainTextForPassword as credential is an object and therefore fails. We can 
 ## ignore any rules here under special circumstances agreed by admins :-)
 $rulesExcluded = @('PSAvoidUsingPlainTextForPassword')
 
-Import-Module -Name "$($moduleInfo.ModulePath)\functions\$sut" -Force
 Import-Module -Name "$($moduleInfo.ModulePath)\internal\Execute-ScriptAnalyzerTests.ps1" -Force
-
 Execute-ScriptAnalyzerTests -Path "$($moduleInfo.ModulePath)\functions\$sut" -Name $name -ExcludeRule $rulesExcluded
+
+Import-Module -Name "$($moduleInfo.ModulePath)\internal\Prepare-PesterEnvironmen.ps1" -Force
 Prepare-PesterEnvironment -ModuleInfo $moduleInfo
+
+Import-Module -Name "$($moduleInfo.ModulePath)\functions\$sut" -Force
 
 ## Validate functionality. 
 Describe $name {
