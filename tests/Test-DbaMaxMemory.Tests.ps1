@@ -9,27 +9,27 @@ Function Get-ModuleInfo(
 ) {
 
     ## Load the command
-    $ModuleBase = $Path
+    $moduleBase = $Path
 
     # For tests in .\Tests sub-directory
-    if ((Split-Path $ModuleBase -Leaf) -in ('tests', 'internal', 'functions')) {
-	    $ModuleBase = Split-Path -Path $ModuleBase -Parent
+    if ((Split-Path $moduleBase -Leaf) -in ('tests', 'internal', 'functions')) {
+	    $moduleBase = Split-Path -Path $moduleBase -Parent
     }
 
     # Handles modules in version directories
-    $leaf = Split-Path -Path $ModuleBase -Leaf
-    $parent = Split-Path -Path $ModuleBase -Parent
+    $leaf = Split-Path -Path $moduleBase -Leaf
+    $parent = Split-Path -Path $moduleBase -Parent
     $parsedVersion = $null
     if ([System.Version]::TryParse($leaf, [ref]$parsedVersion)) {
-	    $ModuleName = Split-Path -Path $parent -Leaf
+	    $moduleName = Split-Path -Path $parent -Leaf
     }
     else {
-	    $ModuleName = $leaf
+	    $moduleName = $leaf
     }
 
     Write-Output -OutVariable [PSCustomObject] @{
-        ModulePath = $ModuleBase
-        ModuleName = $ModuleName
+        ModulePath = $moduleBase
+        ModuleName = $moduleName
         ModuleVersion = $parsedVersion
     }
 }
@@ -54,22 +54,11 @@ if($env:APPVEYOR_REPO_BRANCH -and $env:APPVEYOR_REPO_BRANCH -notlike 'master') {
 	$Verbose.add("Verbose", $true)
 }
 
-## Load the command
-$ModuleBase = (Get-Item -Path (Split-Path -Path $MyInvocation.MyCommand.Path -Parent)).FullName
-
 if(-not $PSScriptRoot) {
-	$PSScriptRoot = $ModuleBase
+	$PSScriptRoot = (Get-Item -Path (Split-Path -Path $MyInvocation.MyCommand.Path -Parent)).FullName
 }
-
 
 $moduleInfo = Get-ModuleInfo -Path (Split-Path -Path $MyInvocation.MyCommand.Path -Parent);
-<#
-# For tests in .\Tests sub-directory
-if ((Split-Path $ModuleBase -Leaf) -eq 'Tests') {
-	$ModuleBase = Split-Path $ModuleBase -Parent
-}
-#>
-$ModuleBase = $moduleInfo.ModulePath
 
 $sut = (Split-Path -Path $MyInvocation.MyCommand.Path -Leaf).Replace('.Tests.', '.')
 $name = $sut.Split('.')[0]
@@ -81,39 +70,7 @@ $rulesExcluded = @('PSAvoidUsingPlainTextForPassword')
 Import-Module -Name "$($moduleInfo.ModulePath)\functions\$sut" -Force
 Import-Module -Name "$($moduleInfo.ModulePath)\internal\Execute-ScriptAnalyzerTests.ps1" -Force
 
-## ## Added PSAvoidUsingPlainTextForPassword as credential is an object and therefore fails. We can ignore any rules here under special circumstances agreed by admins :-)
-## $rules = Get-ScriptAnalyzerRule | Where{ $_.RuleName -notin ('PSAvoidUsingPlainTextForPassword') }
-
 Execute-ScriptAnalyzerTests -Path "$($moduleInfo.ModulePath)\functions\$sut" -Name $name -ExcludeRule $rulesExcluded
-
-
-<#
-# Handles modules in version directories
-$leaf = Split-Path -Path $ModuleBase -Leaf
-$parent = Split-Path -Path $ModuleBase -Parent
-$parsedVersion = $null
-if ([System.Version]::TryParse($leaf, [ref]$parsedVersion)) {
-	$ModuleName = Split-Path -Path $parent -Leaf
-}
-else {
-	$ModuleName = $leaf
-}
-"ModuleBase $ModuleBase"
-"ModuleName $ModuleName"
-"Leaf $leaf"
-"parent $parent"
-
-# Removes all versions of the module from the session before importing
-Get-Module -Name $ModuleName | Remove-Module
-
-# Because ModuleBase includes version number, this imports the required version
-# of the module
-$null = Import-Module -Name "$ModuleBase\$ModuleName.psd1" -PassThru -ErrorAction Stop 
-. "$ModuleBase\internal\DynamicParams.ps1"
-Get-ChildItem -Path "$ModuleBase\internal" -File -Filter *.ps1 | ForEach-Object { . $_.FullName }
-#>
-
-#$moduleInfo = Get-ModuleInfo -Path (Split-Path -Path $MyInvocation.MyCommand.Path -Parent);
 Prepare-PesterEnvironment -ModuleInfo $moduleInfo
 
 ## Validate functionality. 
